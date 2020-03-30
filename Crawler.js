@@ -3,20 +3,43 @@ const cheerio = require('cheerio');
 const axios = require('axios');
 const fs = require('fs');
 const uuid = require('uuid');
+const prompt = require('prompt');
 
-let url = "https://pspro.ir/";
-console.log('Visited Page: ' + url);
-fetchData(url).then((result) => {
-    if (result.error)
-        console.log('Error: ' + result.error);
-    console.log('Status Code: ' + result.status);
-    if (result.status == 200) {
-        let $ = cheerio.load(result.data);
-        collectInternalLinks($);
+const properties = [
+    {
+        name: 'URL'
     }
+];
+
+prompt.start();
+
+prompt.get(properties, function (err, result) {
+    if (err) {
+        console.log(err);
+        return 1;
+    }
+    let url = null;
+    if (result.URL.split('.')[0] == 'https://www' || result.URL.split('.')[0] == 'http://www')
+        url = result.URL;
+    else if (result.URL.split('.')[0] == 'www')
+        url = `https://${result.URL}`;
+    else
+        url = `https://www.${result.URL}`;
+    console.log(`Visiting:${url}...`);
+    fetchData(url).then((result) => {
+        if (result.error) {
+            // error details
+            console.log('Error: ' + result.error);
+        }
+        console.log(`Status Code: ${result.status}`);
+        if (result.status == 200) {
+            let $ = cheerio.load(result.data);
+            collectInternalLinks($, 'both', url)
+        }
+    });
 });
 
-function collectInternalLinks($) {
+function collectInternalLinks($, option, url) {
     var allRelativeLinks = [];
     var allAbsoluteLinks = [];
 
@@ -29,23 +52,44 @@ function collectInternalLinks($) {
     absoluteLinks.each(function () {
         allAbsoluteLinks.push($(this).attr('href'));
     });
-    return writeLogsFile(allAbsoluteLinks);
+
+    switch (option) {
+        case 'relative':
+            return writeLogsFile(allRelativeLinks, url);
+        case 'absolute':
+            return writeLogsFile(allAbsoluteLinks, url);
+        case 'both':
+            let mergedLinks = [];
+            allRelativeLinks.map((item)=>{
+                item = `${url}${item}`;
+                mergedLinks.push(item);
+            });
+            allAbsoluteLinks.map((item)=>{
+                mergedLinks.push(item);
+            });
+            return writeLogsFile(mergedLinks, url);
+    }
 }
-function writeLogsFile(logs) {
+function writeLogsFile(links, url) {
     const randomUUID = uuid.v4();
-    fs.writeFile(`log-${randomUUID}.txt`, '', function (err) {
+    fs.writeFile(`./logs/log-${randomUUID}.txt`, '', function (err) {
         if (err)
             return console.log(err);
         console.log('Logs file created!');
     });
-    logs.map((link, index) => {
-        fs.appendFileSync(`log-${randomUUID}.txt`, `\n${index + 1}-${link}`);
-    });
+    if (links) {
+        links.map((link, index) => {
+            fs.appendFileSync(`./logs/log-${randomUUID}.txt`, `\n${index + 1}-${link}`);
+        });
+    }
 }
 async function fetchData(url) {
     console.log("Crawling data...")
     // make http call to url
-    let response = await axios(url).catch((err) => console.log(err));
+    let response = await axios(url).catch((err) => {
+        console.log(`Cannot reach the URL! Maybe it's not true...`);
+        // console.log(err);
+    });
 
     if (response.status !== 200) {
         console.log("Error occurred while fetching data");
@@ -62,4 +106,7 @@ function searchWord($, words) {
         else
             console.log(word + ': not-found!');
     })
+}
+function findTag($, tag) {
+
 }
