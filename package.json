@@ -10,7 +10,7 @@
     "cheerio": "^0.22.0",
     "node-fetch": "^2.6.0",
     "prompt": "^1.0.0",
-    "url-parse": "^1.0.5",
+    "url-parse": "^1.5.9",
     "uuid": "^7.0.2"
   }
 }
